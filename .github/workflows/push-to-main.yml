@@ -1,22 +1,46 @@
-name: Push to main
 on:
   workflow_call:
     inputs:
-      archive-name:
+      release:
+        required: false
+        default: false
+        type: boolean
+      dry-run:
+        required: false
+        default: true
+        type: boolean
+    secrets:
+      KEYSTORE:
         required: true
-        type: string
+      GRADLE_PROPERTIES:
+        required: true
 jobs:
-  release:
-    name: Release
+  build:
+    name: Build and test
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout the repo
-        uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
+      - &checkout
+        name: Checkout
+        uses: actions/checkout@v3
 
-      - name: Setup the secrets
+      - &setup-jdk
+        name: Setup the JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: zulu
+          java-version: 17
+
+      - &setup-cache
+        name: Setup cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.gradle/caches
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle') }}
+          restore-keys: ${{ runner.os }}-gradle
+
+      - &setup-secrets
+        name: Setup the secrets
         shell: bash
         env:
           KEYSTORE: ${{ secrets.KEYSTORE }}
@@ -26,66 +50,58 @@ jobs:
           echo "$KEYSTORE" | base64 -d > $HOME/.gradle/keystore.jks
           echo "$GRADLE_PROPERTIES" | base64 -d | sed "s:\$HOME:$HOME:g" > $HOME/.gradle/gradle.properties
 
-      - name: Build
-        run: ./gradlew build
+      - name: Build and test
+        run: ./gradlew build test
 
-      - name: Get version if tagged
-        id: get-version
-        run: |
-          TAG=$(git describe --exact-match HEAD 2> /dev/null || true)
-          if [ -n "$TAG" ]; then
-            echo ::set-output name=VERSION::${TAG#v}
-          fi
-
-      - name: Push a git build to CurseForge
-        if: "!steps.get-version.outputs.VERSION"
-        run: ./gradlew curseforge
-
-      - name: Get the last changelog
-        if: steps.get-version.outputs.VERSION
-        run: ./gradlew -q getLastChangelog > last-changelog.md
-
-      - name: Make a GitHub Release
-        if: steps.get-version.outputs.VERSION
-        uses: ncipollo/release-action@v1
+      - name: Upload build artifacts
+        if: ${{ runner.os == 'Linux' }}
+        uses: actions/upload-artifact@v3
         with:
-          tag: v${{ steps.get-version.outputs.VERSION }}
-          artifacts: build/libs/${{ inputs.archive-name }}-${{ steps.get-version.outputs.VERSION }}.jar
-          bodyFile: last-changelog.md
-          removeArtifacts: true
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Push the build to Maven (GitHub and personal)
-        if: steps.get-version.outputs.VERSION
-        run: ./gradlew publish
-
-      - name: Push the build to CurseForge
-        if: steps.get-version.outputs.VERSION
-        run: ./gradlew curseforge
+          name: ${{ github.event.repository.name }}-build-${{ steps.git-info.outputs.SHA_SHORT }}.zip
+          path: build/libs/
 
   update-changelogs:
     name: Update changelogs
+    needs: [build]
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout the main repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
       - name: Checkout the wiki
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           repository: ${{github.repository}}.wiki
           path: wiki
 
-      - name: Generate a human changelog
-        shell: bash
-        run: ./gradlew -q generateChangelog --template .github/workflows/changelog-template.md > wiki/Changelog.md
+      - name: Extract changelog
+        uses: necauqua/changelogs/extract@v1
+
+      - name: Render changelog
+        uses: necauqua/changelogs/render@v1
+        with:
+          date-format: 1%F
+          filename: wiki/Changelog.md
+          template: .github/workflows/changelog-template.md
+
+      - name: Render last changelog
+        uses: necauqua/changelogs/render@v1
+        with:
+          filename: last-changelog.md
+          only-last: true
+
+      - name: Store last changelog
+        run: |
+          echo LAST_CHANGELOG="$(cat last-changelog.md)" >> $GITHUB_OUTPUT
 
       - name: Generate Forge updates.json
-        shell: bash
-        run: ./gradlew -q generateForgeUpdates --template .github/workflows/updates-template.json > wiki/updates.json
+        uses: necauqua/changelogs/gen-forge-updates@v1
+        with:
+          filename: wiki/updates.json
+          template: .github/workflows/updates-template.json
 
       - name: Push to wiki
         run: |
@@ -95,3 +111,109 @@ jobs:
           git add .
           git diff --quiet && git diff --staged --quiet || git commit -m 'Update changelog'
           git push
+
+  release-github:
+    name: Publish on GitHub Releases
+    needs: [update-changelogs]
+    runs-on: ubuntu-latest
+    if: inputs.release
+
+    steps:
+      - *checkout
+      - *setup-jdk
+      - *setup-cache
+      - *setup-secrets
+
+      - &get-changelog
+        name: Get release changelog
+        run: |
+          echo "${{ jobs.update-changelogs.outputs.last-changelog }}" > last-changelog.md
+
+      - name: Get version if tagged
+        id: get-version
+        run: |
+          TAG=$(git describe --exact-match HEAD 2> /dev/null || true)
+          if [ -n "$TAG" ]; then
+            echo VERSION=${TAG#v} >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build
+        if: steps.get-version.outputs.VERSION
+        run: ./gradlew build
+
+      - name: Make a GitHub Release
+        if: steps.get-version.outputs.VERSION && !inputs.dry-run
+        uses: ncipollo/release-action@v1
+        with:
+          tag: v${{ steps.get-version.outputs.VERSION }}
+          artifacts: build/libs/${{ github.event.repository.name }}-${{ steps.get-version.outputs.VERSION }}.jar
+          bodyFile: last-changelog.md
+          removeArtifacts: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Make a GitHub Release (dry-run)
+        if: steps.get-version.outputs.VERSION && inputs.dry-run
+        run: echo "WOULD HAVE MADE A GITHUB RELEASE HERE"
+
+  release-maven:
+    name: Publish on Maven (GitHub and personal)
+    needs: [update-changelogs]
+    runs-on: ubuntu-latest
+    if: inputs.release
+
+    steps:
+      - *checkout
+      - *setup-jdk
+      - *setup-cache
+      - *setup-secrets
+      - *get-changelog
+
+      - name: Publish
+        run: |
+          if "${{ inputs.dry-run }}" = false; then
+            ./gradlew publish
+          else
+            echo WOULD HAVE RUN ./gradlew publish COMMAND HERE
+          fi
+
+  release-curseforge:
+    name: Publish on CurseForge
+    needs: [update-changelogs]
+    runs-on: ubuntu-latest
+    if: inputs.release
+
+    steps:
+      - *checkout
+      - *setup-jdk
+      - *setup-cache
+      - *setup-secrets
+      - *get-changelog
+
+      - name: Publish
+        run: |
+          if "${{ inputs.dry-run }}" = false; then
+            ./gradlew curseforge
+          else
+            echo WOULD HAVE RUN ./gradlew curseforge COMMAND HERE
+          fi
+
+  release-modrinth:
+    name: Publish on Modrinth
+    needs: [update-changelogs]
+    runs-on: ubuntu-latest
+    if: inputs.release
+
+    steps:
+      - *checkout
+      - *setup-jdk
+      - *setup-cache
+      - *setup-secrets
+      - *get-changelog
+
+      - name: Publish
+        run: |
+          if "${{ inputs.dry-run }}" = false; then
+            ./gradlew modrinth
+          else
+            echo WOULD HAVE RUN ./gradlew modrinth COMMAND HERE
+          fi
