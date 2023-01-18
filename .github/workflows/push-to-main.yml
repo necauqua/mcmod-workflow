@@ -20,27 +20,23 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - &checkout
-        name: Checkout
+      - name: Checkout
         uses: actions/checkout@v3
 
-      - &setup-jdk
-        name: Setup the JDK
+      - name: Setup the JDK
         uses: actions/setup-java@v3
         with:
           distribution: zulu
           java-version: 17
 
-      - &setup-cache
-        name: Setup cache
+      - name: Setup cache
         uses: actions/cache@v3
         with:
           path: ~/.gradle/caches
           key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle') }}
           restore-keys: ${{ runner.os }}-gradle
 
-      - &setup-secrets
-        name: Setup the secrets
+      - name: Setup the secrets
         shell: bash
         env:
           KEYSTORE: ${{ secrets.KEYSTORE }}
@@ -119,13 +115,33 @@ jobs:
     if: inputs.release
 
     steps:
-      - *checkout
-      - *setup-jdk
-      - *setup-cache
-      - *setup-secrets
+      - name: Checkout
+        uses: actions/checkout@v3
 
-      - &get-changelog
-        name: Get release changelog
+      - name: Setup the JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: zulu
+          java-version: 17
+
+      - name: Setup cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.gradle/caches
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle') }}
+          restore-keys: ${{ runner.os }}-gradle
+
+      - name: Setup the secrets
+        shell: bash
+        env:
+          KEYSTORE: ${{ secrets.KEYSTORE }}
+          GRADLE_PROPERTIES: ${{ secrets.GRADLE_PROPERTIES }}
+        run: |
+          mkdir -p $HOME/.gradle
+          echo "$KEYSTORE" | base64 -d > $HOME/.gradle/keystore.jks
+          echo "$GRADLE_PROPERTIES" | base64 -d | sed "s:\$HOME:$HOME:g" > $HOME/.gradle/gradle.properties
+
+      - name: Get release changelog
         run: |
           echo "${{ jobs.update-changelogs.outputs.last-changelog }}" > last-changelog.md
 
@@ -162,11 +178,35 @@ jobs:
     if: inputs.release
 
     steps:
-      - *checkout
-      - *setup-jdk
-      - *setup-cache
-      - *setup-secrets
-      - *get-changelog
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup the JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: zulu
+          java-version: 17
+
+      - name: Setup cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.gradle/caches
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle') }}
+          restore-keys: ${{ runner.os }}-gradle
+
+      - name: Setup the secrets
+        shell: bash
+        env:
+          KEYSTORE: ${{ secrets.KEYSTORE }}
+          GRADLE_PROPERTIES: ${{ secrets.GRADLE_PROPERTIES }}
+        run: |
+          mkdir -p $HOME/.gradle
+          echo "$KEYSTORE" | base64 -d > $HOME/.gradle/keystore.jks
+          echo "$GRADLE_PROPERTIES" | base64 -d | sed "s:\$HOME:$HOME:g" > $HOME/.gradle/gradle.properties
+
+      - name: Get release changelog
+        run: |
+          echo "${{ jobs.update-changelogs.outputs.last-changelog }}" > last-changelog.md
 
       - name: Publish
         run: |
@@ -183,11 +223,35 @@ jobs:
     if: inputs.release
 
     steps:
-      - *checkout
-      - *setup-jdk
-      - *setup-cache
-      - *setup-secrets
-      - *get-changelog
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup the JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: zulu
+          java-version: 17
+
+      - name: Setup cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.gradle/caches
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle') }}
+          restore-keys: ${{ runner.os }}-gradle
+
+      - name: Setup the secrets
+        shell: bash
+        env:
+          KEYSTORE: ${{ secrets.KEYSTORE }}
+          GRADLE_PROPERTIES: ${{ secrets.GRADLE_PROPERTIES }}
+        run: |
+          mkdir -p $HOME/.gradle
+          echo "$KEYSTORE" | base64 -d > $HOME/.gradle/keystore.jks
+          echo "$GRADLE_PROPERTIES" | base64 -d | sed "s:\$HOME:$HOME:g" > $HOME/.gradle/gradle.properties
+
+      - name: Get release changelog
+        run: |
+          echo "${{ jobs.update-changelogs.outputs.last-changelog }}" > last-changelog.md
 
       - name: Publish
         run: |
@@ -204,11 +268,35 @@ jobs:
     if: inputs.release
 
     steps:
-      - *checkout
-      - *setup-jdk
-      - *setup-cache
-      - *setup-secrets
-      - *get-changelog
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup the JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: zulu
+          java-version: 17
+
+      - name: Setup cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.gradle/caches
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle') }}
+          restore-keys: ${{ runner.os }}-gradle
+
+      - name: Setup the secrets
+        shell: bash
+        env:
+          KEYSTORE: ${{ secrets.KEYSTORE }}
+          GRADLE_PROPERTIES: ${{ secrets.GRADLE_PROPERTIES }}
+        run: |
+          mkdir -p $HOME/.gradle
+          echo "$KEYSTORE" | base64 -d > $HOME/.gradle/keystore.jks
+          echo "$GRADLE_PROPERTIES" | base64 -d | sed "s:\$HOME:$HOME:g" > $HOME/.gradle/gradle.properties
+
+      - name: Get release changelog
+        run: |
+          echo "${{ jobs.update-changelogs.outputs.last-changelog }}" > last-changelog.md
 
       - name: Publish
         run: |
