@@ -78,7 +78,7 @@ jobs:
 
       - name: Store last changelog
         run: |
-          echo last-changelog="$(cat last-changelog.md)" >> $GITHUB_OUTPUT
+          echo last-changelog="$(cat last-changelog.md | base64)" >> $GITHUB_OUTPUT
 
       - name: Generate Forge updates.json
         uses: necauqua/changelogs/gen-forge-updates@v1
@@ -110,7 +110,7 @@ jobs:
 
       - name: Get release changelog
         run: |
-          echo "${{ needs.update-changelogs.outputs.last-changelog }}" > last-changelog.md
+          echo "${{ needs.update-changelogs.outputs.last-changelog }}" | base64 -d > last-changelog.md
 
       - name: Get version if tagged
         id: get-version
@@ -153,7 +153,7 @@ jobs:
 
       - name: Get release changelog
         run: |
-          echo "${{ needs.update-changelogs.outputs.last-changelog }}" > last-changelog.md
+          echo "${{ needs.update-changelogs.outputs.last-changelog }}" | base64 -d > last-changelog.md
 
       - name: Publish
         run: |
@@ -178,7 +178,7 @@ jobs:
 
       - name: Get release changelog
         run: |
-          echo "${{ needs.update-changelogs.outputs.last-changelog }}" > last-changelog.md
+          echo "${{ needs.update-changelogs.outputs.last-changelog }}" | base64 -d > last-changelog.md
 
       - name: Publish
         run: |
@@ -203,7 +203,7 @@ jobs:
 
       - name: Get release changelog
         run: |
-          echo "${{ needs.update-changelogs.outputs.last-changelog }}" > last-changelog.md
+          echo "${{ needs.update-changelogs.outputs.last-changelog }}" | base64 -d > last-changelog.md
 
       - name: Publish
         run: |
