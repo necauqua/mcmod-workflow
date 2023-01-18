@@ -60,6 +60,8 @@ jobs:
     name: Update changelogs
     needs: [build]
     runs-on: ubuntu-latest
+    outputs:
+      last-changelog: ${{ steps.last-changelog.outputs.last-changelog }}
 
     steps:
       - name: Checkout the main repo
@@ -84,6 +86,7 @@ jobs:
           template: .github/workflows/changelog-template.md
 
       - name: Render last changelog
+        id: last-changelog
         uses: necauqua/changelogs/render@v1
         with:
           filename: last-changelog.md
@@ -91,7 +94,7 @@ jobs:
 
       - name: Store last changelog
         run: |
-          echo LAST_CHANGELOG="$(cat last-changelog.md)" >> $GITHUB_OUTPUT
+          echo last-changelog="$(cat last-changelog.md)" >> $GITHUB_OUTPUT
 
       - name: Generate Forge updates.json
         uses: necauqua/changelogs/gen-forge-updates@v1
@@ -143,7 +146,7 @@ jobs:
 
       - name: Get release changelog
         run: |
-          echo "${{ jobs.update-changelogs.outputs.last-changelog }}" > last-changelog.md
+          echo "${{ needs.update-changelogs.outputs.last-changelog }}" > last-changelog.md
 
       - name: Get version if tagged
         id: get-version
@@ -206,7 +209,7 @@ jobs:
 
       - name: Get release changelog
         run: |
-          echo "${{ jobs.update-changelogs.outputs.last-changelog }}" > last-changelog.md
+          echo "${{ needs.update-changelogs.outputs.last-changelog }}" > last-changelog.md
 
       - name: Publish
         run: |
@@ -251,7 +254,7 @@ jobs:
 
       - name: Get release changelog
         run: |
-          echo "${{ jobs.update-changelogs.outputs.last-changelog }}" > last-changelog.md
+          echo "${{ needs.update-changelogs.outputs.last-changelog }}" > last-changelog.md
 
       - name: Publish
         run: |
@@ -296,7 +299,7 @@ jobs:
 
       - name: Get release changelog
         run: |
-          echo "${{ jobs.update-changelogs.outputs.last-changelog }}" > last-changelog.md
+          echo "${{ needs.update-changelogs.outputs.last-changelog }}" > last-changelog.md
 
       - name: Publish
         run: |
