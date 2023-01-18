@@ -33,7 +33,7 @@ jobs:
         if: ${{ runner.os == 'Linux' }}
         uses: actions/upload-artifact@v3
         with:
-          name: ${{ github.event.repository.name }}-build-${{ steps.git-info.outputs.SHA_SHORT }}.zip
+          name: ${{ github.event.repository.name }}-build-${GITHUB_SHA::7}.zip
           path: build/libs/
 
   update-changelogs:
