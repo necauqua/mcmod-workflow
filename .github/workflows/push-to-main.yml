@@ -29,11 +29,15 @@ jobs:
       - name: Build and test
         run: ./gradlew build test
 
+      - name: Short commit SHA
+        id: short-sha
+        run: echo short-sha=${GITHUB_SHA::7} >> $GITHUB_OUTPUT
+
       - name: Upload build artifacts
         if: ${{ runner.os == 'Linux' }}
         uses: actions/upload-artifact@v3
         with:
-          name: ${{ github.event.repository.name }}-build-${GITHUB_SHA::7}.zip
+          name: ${{ github.event.repository.name }}-build-${{ steps.short-sha.outputs.short-sha }}.zip
           path: build/libs/
 
   update-changelogs:
