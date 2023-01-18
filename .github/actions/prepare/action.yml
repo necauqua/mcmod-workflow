@@ -22,7 +22,9 @@ runs:
     - name: Setup cache
       uses: actions/cache@v3
       with:
-        path: ~/.gradle/caches
+        path: |
+          ~/.gradle/caches
+          build
         key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle') }}
         restore-keys: ${{ runner.os }}-gradle
 
