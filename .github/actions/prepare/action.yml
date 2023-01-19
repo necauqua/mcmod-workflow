@@ -31,7 +31,10 @@ runs:
 
     - name: Setup the secrets
       shell: bash
+      env:
+        KEYSTORE: ${{ inputs.keystore }}
+        GRADLE_PROPERTIES: ${{ inputs.gradle-properties }}
       run: |
         mkdir -p $HOME/.gradle
-        echo "$INPUT_KEYSTORE" | base64 -d > $HOME/.gradle/keystore.jks
-        echo "$INPUT_GRADLE_PROPERTIES" | base64 -d | sed "s:\$HOME:$HOME:g" > $HOME/.gradle/gradle.properties
+        echo "$KEYSTORE" | base64 -d > $HOME/.gradle/keystore.jks
+        echo "$GRADLE_PROPERTIES" | base64 -d | sed "s:\$HOME:$HOME:g" > $HOME/.gradle/gradle.properties
