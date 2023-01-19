@@ -111,6 +111,7 @@ jobs:
       - name: Get release changelog
         run: |
           echo "${{ needs.update-changelogs.outputs.last-changelog }}" | base64 -d > last-changelog.md
+          cat last-changelog.md
 
       - name: Get version if tagged
         id: get-version
@@ -138,6 +139,12 @@ jobs:
         if: steps.get-version.outputs.VERSION && inputs.dry-run
         run: echo "WOULD HAVE MADE A GITHUB RELEASE HERE"
 
+      - name: Make a GitHub Release (no tag)
+        if: '!steps.get-version.outputs.VERSION'
+        run: |
+          echo "Not a tag!"
+          exit 1
+
   release-maven:
     name: Publish on Maven (GitHub and personal)
     needs: [update-changelogs]
@@ -154,10 +161,11 @@ jobs:
       - name: Get release changelog
         run: |
           echo "${{ needs.update-changelogs.outputs.last-changelog }}" | base64 -d > last-changelog.md
+          cat last-changelog.md
 
       - name: Publish
         run: |
-          if "${{ inputs.dry-run }}" = false; then
+          if [ "${{ inputs.dry-run }}" = false ]; then
             ./gradlew publish
           else
             echo WOULD HAVE RUN ./gradlew publish COMMAND HERE
@@ -179,10 +187,11 @@ jobs:
       - name: Get release changelog
         run: |
           echo "${{ needs.update-changelogs.outputs.last-changelog }}" | base64 -d > last-changelog.md
+          cat last-changelog.md
 
       - name: Publish
         run: |
-          if "${{ inputs.dry-run }}" = false; then
+          if [ "${{ inputs.dry-run }}" = false ]; then
             ./gradlew curseforge
           else
             echo WOULD HAVE RUN ./gradlew curseforge COMMAND HERE
@@ -204,10 +213,11 @@ jobs:
       - name: Get release changelog
         run: |
           echo "${{ needs.update-changelogs.outputs.last-changelog }}" | base64 -d > last-changelog.md
+          cat last-changelog.md
 
       - name: Publish
         run: |
-          if "${{ inputs.dry-run }}" = false; then
+          if [ "${{ inputs.dry-run }}" = false ]; then
             ./gradlew modrinth
           else
             echo WOULD HAVE RUN ./gradlew modrinth COMMAND HERE
