@@ -64,15 +64,15 @@ jobs:
           template: .github/workflows/changelog-template.md
 
       - name: Render last changelog
-        id: last-changelog
         uses: necauqua/changelogs/render@v1
         with:
           filename: last-changelog.md
           only-last: true
 
       - name: Store last changelog
+        id: last-changelog
         run: |
-          echo last-changelog="$(cat last-changelog.md | base64)" >> $GITHUB_OUTPUT
+          echo last-changelog="$(cat last-changelog.md | base64 -w0)" >> $GITHUB_OUTPUT
 
       - name: Generate Forge updates.json
         uses: necauqua/changelogs/gen-forge-updates@v1
