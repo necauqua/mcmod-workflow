@@ -1,14 +1,8 @@
 on:
   workflow_call:
-    inputs:
-      release:
-        required: false
-        default: false
-        type: boolean
-      dry-run:
-        required: false
-        default: true
-        type: boolean
+    outputs:
+      last-changelog:
+        value: ${{ jobs.update-changelogs.outputs.last-changelog }}
     secrets:
       KEYSTORE:
         required: true
@@ -42,7 +36,7 @@ jobs:
 
   update-changelogs:
     name: Update changelogs
-    needs: [build]
+    needs: [build] # run after build/test so that if it fails we don't update stuff just yet
     runs-on: ubuntu-latest
     outputs:
       last-changelog: ${{ steps.last-changelog.outputs.last-changelog }}
@@ -94,131 +88,3 @@ jobs:
           git add .
           git diff --quiet && git diff --staged --quiet || git commit -m 'Update changelog'
           git push
-
-  release-github:
-    name: Publish on GitHub Releases
-    needs: [update-changelogs]
-    runs-on: ubuntu-latest
-    if: inputs.release
-
-    steps:
-      - name: Prepare
-        uses: necauqua/mcmod-workflow/.github/actions/prepare@main
-        with:
-          keystore: ${{ secrets.KEYSTORE }}
-          gradle-properties: ${{ secrets.GRADLE_PROPERTIES }}
-
-      - name: Get release changelog
-        run: |
-          echo "${{ needs.update-changelogs.outputs.last-changelog }}" | base64 -d > last-changelog.md
-          cat last-changelog.md
-
-      - name: Get version if tagged
-        id: get-version
-        run: |
-          TAG=$(git describe --exact-match HEAD 2> /dev/null || true)
-          if [ -n "$TAG" ]; then
-            echo VERSION=${TAG#v} >> $GITHUB_OUTPUT
-          fi
-
-      - name: Build
-        if: steps.get-version.outputs.VERSION
-        run: ./gradlew build
-
-      - name: Make a GitHub Release
-        if: steps.get-version.outputs.VERSION && !inputs.dry-run
-        uses: ncipollo/release-action@v1
-        with:
-          tag: v${{ steps.get-version.outputs.VERSION }}
-          artifacts: build/libs/${{ github.event.repository.name }}-${{ steps.get-version.outputs.VERSION }}.jar
-          bodyFile: last-changelog.md
-          removeArtifacts: true
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Make a GitHub Release (dry-run)
-        if: steps.get-version.outputs.VERSION && inputs.dry-run
-        run: echo "WOULD HAVE MADE A GITHUB RELEASE HERE"
-
-      - name: Make a GitHub Release (no tag)
-        if: '!steps.get-version.outputs.VERSION'
-        run: |
-          echo "Not a tag!"
-          exit 1
-
-  release-maven:
-    name: Publish on Maven (GitHub and personal)
-    needs: [update-changelogs]
-    runs-on: ubuntu-latest
-    if: inputs.release
-
-    steps:
-      - name: Prepare
-        uses: necauqua/mcmod-workflow/.github/actions/prepare@main
-        with:
-          keystore: ${{ secrets.KEYSTORE }}
-          gradle-properties: ${{ secrets.GRADLE_PROPERTIES }}
-
-      - name: Get release changelog
-        run: |
-          echo "${{ needs.update-changelogs.outputs.last-changelog }}" | base64 -d > last-changelog.md
-          cat last-changelog.md
-
-      - name: Publish
-        run: |
-          if [ "${{ inputs.dry-run }}" = false ]; then
-            ./gradlew publish
-          else
-            echo WOULD HAVE RUN ./gradlew publish COMMAND HERE
-          fi
-
-  release-curseforge:
-    name: Publish on CurseForge
-    needs: [update-changelogs]
-    runs-on: ubuntu-latest
-    if: inputs.release
-
-    steps:
-      - name: Prepare
-        uses: necauqua/mcmod-workflow/.github/actions/prepare@main
-        with:
-          keystore: ${{ secrets.KEYSTORE }}
-          gradle-properties: ${{ secrets.GRADLE_PROPERTIES }}
-
-      - name: Get release changelog
-        run: |
-          echo "${{ needs.update-changelogs.outputs.last-changelog }}" | base64 -d > last-changelog.md
-          cat last-changelog.md
-
-      - name: Publish
-        run: |
-          if [ "${{ inputs.dry-run }}" = false ]; then
-            ./gradlew curseforge
-          else
-            echo WOULD HAVE RUN ./gradlew curseforge COMMAND HERE
-          fi
-
-  release-modrinth:
-    name: Publish on Modrinth
-    needs: [update-changelogs]
-    runs-on: ubuntu-latest
-    if: inputs.release
-
-    steps:
-      - name: Prepare
-        uses: necauqua/mcmod-workflow/.github/actions/prepare@main
-        with:
-          keystore: ${{ secrets.KEYSTORE }}
-          gradle-properties: ${{ secrets.GRADLE_PROPERTIES }}
-
-      - name: Get release changelog
-        run: |
-          echo "${{ needs.update-changelogs.outputs.last-changelog }}" | base64 -d > last-changelog.md
-          cat last-changelog.md
-
-      - name: Publish
-        run: |
-          if [ "${{ inputs.dry-run }}" = false ]; then
-            ./gradlew modrinth
-          else
-            echo WOULD HAVE RUN ./gradlew modrinth COMMAND HERE
-          fi

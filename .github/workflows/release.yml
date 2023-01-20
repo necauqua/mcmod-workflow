@@ -1,0 +1,142 @@
+on:
+  workflow_call:
+    inputs:
+      release-github:
+        default: false
+        type: boolean
+      release-maven:
+        default: false
+        type: boolean
+      release-curse:
+        default: false
+        type: boolean
+      release-modrinth:
+        default: false
+        type: boolean
+      dry-run:
+        default: true
+        type: boolean
+    secrets:
+      KEYSTORE:
+        required: true
+      GRADLE_PROPERTIES:
+        required: true
+jobs:
+
+  check:
+    name: Check
+    uses: necauqua/mcmod-workflow/.github/workflows/push-to-main.yml@main
+    secrets:
+      KEYSTORE: ${{ secrets.KEYSTORE }}
+      GRADLE_PROPERTIES: ${{ secrets.GRADLE_PROPERTIES }}
+
+  release-github:
+    name: Publish on GitHub Releases
+    needs: [check]
+    runs-on: ubuntu-latest
+    if: inputs.release-github
+
+    steps:
+      - name: Prepare
+        uses: necauqua/mcmod-workflow/.github/actions/prepare@main
+        with:
+          keystore: ${{ secrets.KEYSTORE }}
+          gradle-properties: ${{ secrets.GRADLE_PROPERTIES }}
+
+      - name: Get release changelog
+        run: echo "${{ needs.check.outputs.last-changelog }}" | base64 -d > last-changelog.md
+
+      - name: Get version if tagged
+        id: get-version
+        run: |
+          TAG=$(git describe --exact-match HEAD 2> /dev/null || true)
+          if [ -n "$TAG" ]; then
+            echo VERSION=${TAG#v} >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build
+        if: steps.get-version.outputs.VERSION
+        run: ./gradlew build
+
+      - name: Make a GitHub Release
+        if: steps.get-version.outputs.VERSION && !inputs.dry-run
+        uses: ncipollo/release-action@v1
+        with:
+          tag: v${{ steps.get-version.outputs.VERSION }}
+          artifacts: build/libs/${{ github.event.repository.name }}-${{ steps.get-version.outputs.VERSION }}.jar
+          bodyFile: last-changelog.md
+          removeArtifacts: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Make a GitHub Release (dry-run)
+        if: steps.get-version.outputs.VERSION && inputs.dry-run
+        run: echo "WOULD HAVE MADE A GITHUB RELEASE HERE"
+
+      - name: Make a GitHub Release (no tag)
+        if: '!steps.get-version.outputs.VERSION'
+        run: |
+          echo "Not a tag!"
+          exit 1
+
+  release-maven:
+    name: Publish on Maven (maven.necauqua.dev and GitHub Packages)
+    needs: [check]
+    runs-on: ubuntu-latest
+    if: inputs.release-maven
+
+    steps:
+      - name: Prepare
+        uses: necauqua/mcmod-workflow/.github/actions/prepare@main
+        with:
+          keystore: ${{ secrets.KEYSTORE }}
+          gradle-properties: ${{ secrets.GRADLE_PROPERTIES }}
+
+      - name: Get release changelog
+        run: echo "${{ needs.check.outputs.last-changelog }}" | base64 -d > last-changelog.md
+
+      - name: Publish
+        env:
+          DRY_RUN: ${{ inputs.dry-run }}
+        run: ./gradlew publish
+
+  release-curse:
+    name: Publish on CurseForge
+    needs: [check]
+    runs-on: ubuntu-latest
+    if: inputs.release-curse
+
+    steps:
+      - name: Prepare
+        uses: necauqua/mcmod-workflow/.github/actions/prepare@main
+        with:
+          keystore: ${{ secrets.KEYSTORE }}
+          gradle-properties: ${{ secrets.GRADLE_PROPERTIES }}
+
+      - name: Get release changelog
+        run: echo "${{ needs.check.outputs.last-changelog }}" | base64 -d > last-changelog.md
+
+      - name: Publish
+        env:
+          DRY_RUN: ${{ inputs.dry-run }}
+        run: ./gradlew curseforge
+
+  release-modrinth:
+    name: Publish on Modrinth
+    needs: [check]
+    runs-on: ubuntu-latest
+    if: inputs.release-modrinth
+
+    steps:
+      - name: Prepare
+        uses: necauqua/mcmod-workflow/.github/actions/prepare@main
+        with:
+          keystore: ${{ secrets.KEYSTORE }}
+          gradle-properties: ${{ secrets.GRADLE_PROPERTIES }}
+
+      - name: Get release changelog
+        run: echo "${{ needs.check.outputs.last-changelog }}" | base64 -d > last-changelog.md
+
+      - name: Publish
+        env:
+          DRY_RUN: ${{ inputs.dry-run }}
+        run: ./gradlew modrinth
